@@ -1,0 +1,238 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+# Desc: Switches simulados — snmpd escuta em 0.0.0.0:161 (porta privilegiada)
+#       Em produção substituir pelos IPs reais no switches.csv do Telegraf
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-core, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Nokia 7750 SR OS 22.10.R3, Copyright Nokia. All rights reserved.
+    sysContact noc-vivo@telefonica.com
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 40 + 5))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 30 + 20))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-pe, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Huawei Versatile Routing Platform VRP Version 8.220 (NE40E V800R011C10SPC607)
+    sysContact noc-vivo@telefonica.com
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 35 + 10))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 40 + 25))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-access, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Cisco IOS XE Software Version 17.9.3a Cisco Catalyst 9300 Series Switch
+    sysContact noc-vivo@telefonica.com
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 25 + 5))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 35 + 30))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-transport, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Ciena 6500 Packet-Optical Platform SW Release 14.1.0.GA
+    sysContact noc-vivo@telefonica.com
+    extend optRxPower  /bin/sh -c "echo $(( -(RANDOM % 300 + 200) ))"
+    extend optTxPower  /bin/sh -c "echo $(( -(RANDOM % 100 + 10) ))"
+    extend chassisTemp /bin/sh -c "echo $((RANDOM % 20 + 35))"
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 20 + 5))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 25 + 40))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-internet, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Cisco IOS XR Software Version 7.9.2 ASR-9001 chassis
+    sysContact noc-vivo@telefonica.com
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 45 + 15))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 35 + 30))"
+    extend bgpPeers    /bin/sh -c "echo $((RANDOM % 10 + 20))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: snmpd-dc, namespace: snmp-targets}
+data:
+  snmpd.conf: |
+    agentAddress udp:0.0.0.0:161
+    rocommunity public 0.0.0.0/0
+    sysDescr Arista Networks EOS version 4.29.2F running on DCS-7050TX-64
+    sysContact noc-vivo@telefonica.com
+    extend cpuUsage    /bin/sh -c "echo $((RANDOM % 30 + 10))"
+    extend memUsage    /bin/sh -c "echo $((RANDOM % 40 + 20))"
+    view all included .1
+    access notConfigGroup "" any noauth exact all all none
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-core, namespace: snmp-targets, labels: {app: sw-core, layer: core}}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: sw-core}}
+  template:
+    metadata:
+      labels: {app: sw-core, layer: core}
+      annotations:
+        k8s.v1.cni.cncf.io/networks: net-core
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      topologySpreadConstraints:
+        - {maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: DoNotSchedule, labelSelector: {matchLabels: {app: sw-core}}}
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-core}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-pe, namespace: snmp-targets, labels: {app: sw-pe, layer: pe}}
+spec:
+  replicas: 5
+  selector: {matchLabels: {app: sw-pe}}
+  template:
+    metadata:
+      labels: {app: sw-pe, layer: pe}
+      annotations: {k8s.v1.cni.cncf.io/networks: net-pe}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-pe}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-access, namespace: snmp-targets, labels: {app: sw-access, layer: access}}
+spec:
+  replicas: 10
+  selector: {matchLabels: {app: sw-access}}
+  template:
+    metadata:
+      labels: {app: sw-access, layer: access}
+      annotations: {k8s.v1.cni.cncf.io/networks: net-access}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-access}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-transport, namespace: snmp-targets, labels: {app: sw-transport, layer: transport}}
+spec:
+  replicas: 4
+  selector: {matchLabels: {app: sw-transport}}
+  template:
+    metadata:
+      labels: {app: sw-transport, layer: transport}
+      annotations: {k8s.v1.cni.cncf.io/networks: net-transport}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-transport}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-internet, namespace: snmp-targets, labels: {app: sw-internet, layer: internet}}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: sw-internet}}
+  template:
+    metadata:
+      labels: {app: sw-internet, layer: internet}
+      annotations: {k8s.v1.cni.cncf.io/networks: net-internet}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-internet}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sw-dc, namespace: snmp-targets, labels: {app: sw-dc, layer: dc}}
+spec:
+  replicas: 6
+  selector: {matchLabels: {app: sw-dc}}
+  template:
+    metadata:
+      labels: {app: sw-dc, layer: dc}
+      annotations: {k8s.v1.cni.cncf.io/networks: net-dc}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: snmpd
+          image: ghcr.io/drmsantos/vivo-snmpd:latest
+          imagePullPolicy: Always
+          volumeMounts: [{name: config, mountPath: /etc/snmp/snmpd.conf, subPath: snmpd.conf}]
+          resources: {requests: {memory: "64Mi", cpu: "50m"}, limits: {memory: "128Mi", cpu: "200m"}}
+      volumes: [{name: config, configMap: {name: snmpd-dc}}]

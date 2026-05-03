@@ -1,0 +1,84 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+# Desc: TimescaleDB — StorageClass local-path
+# IMPORTANTE: após o primeiro boot executar:
+#   kubectl exec -n snmp-monitor deploy/timescaledb -- psql -U postgres -d snmp_metrics -c "GRANT ALL ON SCHEMA public TO telegraf;"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: timescaledb-pvc
+  namespace: snmp-monitor
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timescaledb-init
+  namespace: snmp-monitor
+data:
+  init.sql: |
+    CREATE USER telegraf WITH PASSWORD 'telegraf123';
+    CREATE USER altaia_reader WITH PASSWORD 'altaia_read_2026';
+    GRANT ALL PRIVILEGES ON DATABASE snmp_metrics TO telegraf;
+    GRANT CONNECT ON DATABASE snmp_metrics TO altaia_reader;
+    CREATE EXTENSION IF NOT EXISTS timescaledb;
+    GRANT ALL ON SCHEMA public TO telegraf;
+    GRANT ALL ON SCHEMA public TO altaia_reader;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO telegraf;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO altaia_reader;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timescaledb
+  namespace: snmp-monitor
+  labels: {app: timescaledb}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: timescaledb}}
+  template:
+    metadata:
+      labels: {app: timescaledb}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: timescaledb
+          image: timescale/timescaledb:latest-pg16
+          ports: [{containerPort: 5432}]
+          env:
+            - {name: POSTGRES_DB,       value: snmp_metrics}
+            - {name: POSTGRES_USER,     value: postgres}
+            - {name: POSTGRES_PASSWORD, value: postgres2026}
+            - {name: TZ,                value: America/Sao_Paulo}
+          volumeMounts:
+            - {name: data,   mountPath: /var/lib/postgresql/data}
+            - {name: initdb, mountPath: /docker-entrypoint-initdb.d}
+          resources:
+            requests: {memory: "512Mi", cpu: "250m"}
+            limits:   {memory: "2Gi",   cpu: "1000m"}
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, postgres, -d, snmp_metrics]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - {name: data,   persistentVolumeClaim: {claimName: timescaledb-pvc}}
+        - {name: initdb, configMap: {name: timescaledb-init}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+  namespace: snmp-monitor
+spec:
+  selector: {app: timescaledb}
+  ports: [{port: 5432, targetPort: 5432}]

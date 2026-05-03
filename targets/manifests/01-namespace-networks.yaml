@@ -1,0 +1,50 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: snmp-targets
+  labels:
+    app.kubernetes.io/part-of: vivo-snmp-prod
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-core, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-core","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.1.0/24","rangeStart":"172.20.1.10","rangeEnd":"172.20.1.90","gateway":"172.20.1.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-pe, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-pe","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.2.0/24","rangeStart":"172.20.2.10","rangeEnd":"172.20.2.90","gateway":"172.20.2.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-access, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-access","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.3.0/24","rangeStart":"172.20.3.10","rangeEnd":"172.20.3.90","gateway":"172.20.3.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-oam, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-oam","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.4.0/24","rangeStart":"172.20.4.10","rangeEnd":"172.20.4.90","gateway":"172.20.4.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-transport, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-transport","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.5.0/24","rangeStart":"172.20.5.10","rangeEnd":"172.20.5.90","gateway":"172.20.5.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-internet, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-internet","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.6.0/24","rangeStart":"172.20.6.10","rangeEnd":"172.20.6.90","gateway":"172.20.6.1"}}'
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata: {name: net-dc, namespace: snmp-targets}
+spec:
+  config: '{"cniVersion":"0.3.1","name":"net-dc","type":"macvlan","master":"eth0","mode":"bridge","ipam":{"type":"host-local","subnet":"172.20.7.0/24","rangeStart":"172.20.7.10","rangeEnd":"172.20.7.90","gateway":"172.20.7.1"}}'

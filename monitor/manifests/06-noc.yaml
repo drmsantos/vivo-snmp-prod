@@ -1,0 +1,103 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+# Desc: NOC Dashboard — API Flask v3 + React frontend
+# URL: http://vivo-noc.172.16.15.32.nip.io
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vivo-noc-api
+  namespace: snmp-monitor
+  labels: {app: vivo-noc-api}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: vivo-noc-api}}
+  template:
+    metadata:
+      labels: {app: vivo-noc-api}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: api
+          image: ghcr.io/drmsantos/vivo-noc-api:latest
+          imagePullPolicy: Always
+          ports: [{containerPort: 8080}]
+          env:
+            - name: DB_DSN
+              value: "host=timescaledb.snmp-monitor.svc.cluster.local dbname=snmp_metrics user=telegraf password=telegraf123"
+            - {name: TZ, value: America/Sao_Paulo}
+          resources:
+            requests: {memory: "128Mi", cpu: "50m"}
+            limits:   {memory: "256Mi", cpu: "200m"}
+          readinessProbe:
+            httpGet: {path: /api/health, port: 8080}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vivo-noc-api
+  namespace: snmp-monitor
+spec:
+  selector: {app: vivo-noc-api}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vivo-noc-frontend
+  namespace: snmp-monitor
+  labels: {app: vivo-noc-frontend}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: vivo-noc-frontend}}
+  template:
+    metadata:
+      labels: {app: vivo-noc-frontend}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: frontend
+          image: ghcr.io/drmsantos/vivo-noc-frontend:latest
+          imagePullPolicy: Always
+          ports: [{containerPort: 80}]
+          resources:
+            requests: {memory: "64Mi",  cpu: "10m"}
+            limits:   {memory: "128Mi", cpu: "100m"}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vivo-noc-frontend
+  namespace: snmp-monitor
+spec:
+  selector: {app: vivo-noc-frontend}
+  ports: [{port: 80, targetPort: 80}]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vivo-noc
+  namespace: snmp-monitor
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: vivo-noc.172.16.15.32.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vivo-noc-frontend
+                port: {number: 80}

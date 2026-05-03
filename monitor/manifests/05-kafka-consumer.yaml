@@ -1,0 +1,73 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+# Desc: Consumer Kafka → TimescaleDB
+#       json_name_key="name" preserva os nomes originais das métricas (snmp_core, snmp_pe, etc)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-consumer-conf
+  namespace: snmp-monitor
+data:
+  telegraf.conf: |
+    [agent]
+      interval       = "10s"
+      flush_interval = "10s"
+      hostname       = "kafka-consumer"
+      omit_hostname  = false
+
+    [[inputs.kafka_consumer]]
+      brokers            = ["kafka.snmp-monitor.svc.cluster.local:9092"]
+      topics             = ["snmp-metrics"]
+      consumer_group     = "timescaledb-writer"
+      offset             = "oldest"
+      data_format        = "json"
+      json_name_key      = "name"
+      json_time_key      = "timestamp"
+      json_time_format   = "unix"
+      json_string_fields = ["sysName","sysDescr","cpuUsage","memUsage","ifDescr"]
+      tag_keys           = ["source","host"]
+
+    [[outputs.postgresql]]
+      connection           = "host=timescaledb.snmp-monitor.svc.cluster.local dbname=snmp_metrics user=telegraf password=telegraf123"
+      schema               = "public"
+      tags_as_foreign_keys = false
+      create_templates     = ['''CREATE TABLE IF NOT EXISTS {{ .table }} ({{ .columns }})''']
+      add_column_templates = ['''ALTER TABLE {{ .table }} ADD COLUMN IF NOT EXISTS {{ .columns }}''']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: snmp-monitor
+  labels: {app: kafka-consumer}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: kafka-consumer}}
+  template:
+    metadata:
+      labels: {app: kafka-consumer}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      initContainers:
+        - name: wait-timescaledb
+          image: busybox:1.36
+          command: ['sh','-c','until nc -z timescaledb.snmp-monitor.svc.cluster.local 5432; do sleep 3; done']
+        - name: wait-kafka
+          image: busybox:1.36
+          command: ['sh','-c','until nc -z kafka.snmp-monitor.svc.cluster.local 9092; do sleep 3; done']
+      containers:
+        - name: consumer
+          image: telegraf:1.30-alpine
+          env:
+            - {name: TZ, value: America/Sao_Paulo}
+          volumeMounts:
+            - {name: config, mountPath: /etc/telegraf/telegraf.conf, subPath: telegraf.conf}
+          resources:
+            requests: {memory: "128Mi", cpu: "100m"}
+            limits:   {memory: "256Mi", cpu: "300m"}
+      volumes:
+        - {name: config, configMap: {name: kafka-consumer-conf}}

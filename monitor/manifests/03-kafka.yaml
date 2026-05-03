@@ -1,0 +1,109 @@
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 2.2
+# Desc: Apache Kafka 3.8.0 KRaft mode — StorageClass local-path
+# IMPORTANTE: required_acks=1 obrigatório para single-broker
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-pvc
+  namespace: snmp-monitor
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: snmp-monitor
+  labels: {app: kafka}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: kafka}}
+  template:
+    metadata:
+      labels: {app: kafka}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
+      containers:
+        - name: kafka
+          image: apache/kafka:3.8.0
+          ports:
+            - {containerPort: 9092}
+            - {containerPort: 9093}
+          env:
+            - {name: KAFKA_NODE_ID,                                    value: "1"}
+            - {name: KAFKA_PROCESS_ROLES,                              value: "broker,controller"}
+            - {name: KAFKA_CONTROLLER_QUORUM_VOTERS,                   value: "1@localhost:9093"}
+            - {name: KAFKA_LISTENERS,                                  value: "PLAINTEXT://:9092,CONTROLLER://:9093"}
+            - {name: KAFKA_ADVERTISED_LISTENERS,                       value: "PLAINTEXT://kafka.snmp-monitor.svc.cluster.local:9092"}
+            - {name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP,             value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"}
+            - {name: KAFKA_CONTROLLER_LISTENER_NAMES,                  value: "CONTROLLER"}
+            - {name: KAFKA_INTER_BROKER_LISTENER_NAME,                 value: "PLAINTEXT"}
+            - {name: KAFKA_AUTO_CREATE_TOPICS_ENABLE,                  value: "true"}
+            - {name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR,           value: "1"}
+            - {name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR,   value: "1"}
+            - {name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR,              value: "1"}
+            - {name: KAFKA_LOG_DIRS,                                   value: "/tmp/kafka-logs"}
+            - {name: KAFKA_HEAP_OPTS,                                  value: "-Xmx512m -Xms256m"}
+            - {name: KAFKA_LOG_RETENTION_HOURS,                        value: "168"}
+            - {name: TZ,                                               value: "America/Sao_Paulo"}
+          volumeMounts:
+            - {name: data, mountPath: /tmp/kafka-logs}
+          resources:
+            requests: {memory: "512Mi", cpu: "250m"}
+            limits:   {memory: "1Gi",   cpu: "500m"}
+          readinessProbe:
+            tcpSocket: {port: 9092}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: kafka-pvc}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: snmp-monitor
+spec:
+  selector: {app: kafka}
+  ports:
+    - {name: kafka,      port: 9092, targetPort: 9092}
+    - {name: controller, port: 9093, targetPort: 9093}
+---
+# Job cria o tópico snmp-metrics após Kafka subir
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-create-topics
+  namespace: snmp-monitor
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-kafka
+          image: busybox:1.36
+          command: ['sh','-c','until nc -z kafka.snmp-monitor.svc.cluster.local 9092; do sleep 3; done']
+      containers:
+        - name: create-topics
+          image: apache/kafka:3.8.0
+          command:
+            - /opt/kafka/bin/kafka-topics.sh
+            - --create
+            - --if-not-exists
+            - --topic
+            - snmp-metrics
+            - --bootstrap-server
+            - kafka.snmp-monitor.svc.cluster.local:9092
+            - --partitions
+            - "6"
+            - --replication-factor
+            - "1"

@@ -3,10 +3,225 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VIVO NOC</title>
+<title>VIVO NOC — OpenLabs</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #040d1a;
+  --bg2:       #071428;
+  --bg3:       #0a1c35;
+  --border:    #0d2545;
+  --teal:      #00d4aa;
+  --teal-dim:  #00d4aa33;
+  --blue:      #3d8eff;
+  --blue-dim:  #3d8eff22;
+  --purple:    #a78bfa;
+  --orange:    #fb923c;
+  --yellow:    #f59e0b;
+  --green:     #34d399;
+  --red:       #ef4444;
+  --text:      #c8d8e8;
+  --text-dim:  #4a6580;
+  --mono:      'Share Tech Mono', monospace;
+  --sans:      'Rajdhani', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 24px;
+  height: 52px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.brand { display:flex; align-items:center; gap:10px; }
+.brand-icon {
+  width: 28px; height: 28px;
+  border: 2px solid var(--teal);
+  border-radius: 6px;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 12px; color: var(--teal);
+  font-family: var(--mono);
+}
+.brand-title { font-size:16px; font-weight:700; letter-spacing:3px; color:#fff; }
+.brand-sub { font-size:10px; color:var(--text-dim); letter-spacing:1px; margin-top:1px; }
+
+.kpi-bar { display:flex; gap:28px; margin-left:8px; }
+.kpi { display:flex; flex-direction:column; gap:1px; }
+.kpi-label { font-size:9px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; }
+.kpi-value { font-family:var(--mono); font-size:16px; color:var(--teal); }
+.kpi-value.warn { color:var(--orange); }
+.kpi-value.alert { color:var(--red); }
+
+.spacer { flex:1; }
+
+.live-badge {
+  display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:11px; color:var(--text-dim);
+}
+.live-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--teal);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; box-shadow:0 0 0 0 var(--teal-dim); }
+  50%      { opacity:.7; box-shadow:0 0 0 6px transparent; }
+}
+
+main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas#topo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.nodes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: all;
+  cursor: pointer;
+  transition: filter .2s;
+}
+.node:hover { filter: brightness(1.4); z-index: 10; }
+
+.node-ring {
+  position: relative;
+  width: 52px; height: 52px;
+}
+.node-ring svg {
+  width: 100%; height: 100%;
+  transform: rotate(-90deg);
+}
+.node-ring .bg-ring { fill:none; stroke: var(--border); stroke-width:3; }
+.node-ring .cpu-ring { fill:none; stroke-width:3; stroke-linecap:round; transition: stroke-dashoffset .6s ease; }
+.node-ring .icon {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items:center; justify-content:center;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.node-name {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.node-cpu {
+  font-size: 9px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+aside {
+  width: 280px;
+  background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.aside-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.aside-title {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.alert-item {
+  display: flex; align-items:center; gap:8px;
+  font-family: var(--mono); font-size:10px;
+  padding: 4px 0;
+  color: var(--text-dim);
+}
+.alert-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+.layer-item { margin-bottom: 10px; }
+.layer-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.layer-name { display:flex; align-items:center; gap:6px; font-weight:600; font-size:13px; }
+.layer-bar-marker { width:3px; height:13px; border-radius:2px; }
+.layer-count { font-family:var(--mono); font-size:10px; color:var(--text-dim); }
+.layer-metrics { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+.metric-row { display:flex; align-items:center; gap:6px; }
+.metric-label { font-size:9px; color:var(--text-dim); width:22px; }
+.metric-bar-wrap { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.metric-bar { height:100%; border-radius:2px; transition: width .6s ease; }
+.metric-val { font-family:var(--mono); font-size:9px; color:var(--text-dim); width:28px; text-align:right; }
+
+.top-switch { display:flex; align-items:center; justify-content:space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size:11px; }
+.top-switch:last-child { border-bottom:none; }
+.top-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-right:6px; }
+.top-name { font-family:var(--mono); font-size:10px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.top-val { font-family:var(--mono); font-size:10px; color:var(--teal); flex-shrink:0; margin-left:8px; }
+
+#detail { position:absolute; right:296px; top:60px; width:240px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:14px; display:none; z-index:100; font-size:12px; }
+#detail.show { display:block; }
+.detail-title { font-weight:700; font-size:14px; margin-bottom:10px; color:#fff; }
+.detail-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid var(--border); }
+.detail-row:last-child { border-bottom:none; }
+.detail-key { color:var(--text-dim); font-size:11px; }
+.detail-val { font-family:var(--mono); font-size:11px; color:var(--teal); }
+
+#legend { position:absolute; bottom:12px; left:12px; display:flex; gap:12px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text-dim); cursor:pointer; padding: 3px 8px; border:1px solid transparent; border-radius:4px; transition: all .2s; }
+.legend-item:hover, .legend-item.active { border-color: var(--border); background: var(--bg3); color: var(--text); }
+.legend-dot { width:8px; height:8px; border-radius:50%; }
+
+.aside-scroll { overflow-y:auto; flex:1; }
+.aside-scroll::-webkit-scrollbar { width:3px; }
+.aside-scroll::-webkit-scrollbar-track { background:transparent; }
+.aside-scroll::-webkit-scrollbar-thumb { background:var(--border); }
+</style>
 </head>
-<body style="background:#040d1a;color:#00d4aa;font-family:monospace;padding:40px">
-<h1>VIVO NOC - carregando...</h1>
-<script>setTimeout(()=>location.href="/api/dashboard",500)</script>
-</body>
-</html>

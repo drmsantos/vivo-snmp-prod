@@ -85,12 +85,14 @@ header {
   50%      { opacity:.7; box-shadow:0 0 0 6px transparent; }
 }
 
+/* ── MAIN ── */
 main {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
+/* ── CANVAS ── */
 #canvas-wrap {
   flex: 1;
   position: relative;
@@ -110,6 +112,7 @@ canvas#topo {
   pointer-events: none;
 }
 
+/* ── NODE ── */
 .node {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -158,6 +161,7 @@ canvas#topo {
   font-family: var(--mono);
 }
 
+/* ── SIDEBAR ── */
 aside {
   width: 280px;
   background: var(--bg2);
@@ -180,6 +184,7 @@ aside {
   margin-bottom: 10px;
 }
 
+/* alerts */
 .alert-item {
   display: flex; align-items:center; gap:8px;
   font-family: var(--mono); font-size:10px;
@@ -188,25 +193,58 @@ aside {
 }
 .alert-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 
-.layer-item { margin-bottom: 10px; }
-.layer-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
-.layer-name { display:flex; align-items:center; gap:6px; font-weight:600; font-size:13px; }
+/* layers */
+.layer-item {
+  margin-bottom: 10px;
+}
+.layer-head {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:4px;
+}
+.layer-name {
+  display:flex; align-items:center; gap:6px;
+  font-weight:600; font-size:13px;
+}
 .layer-bar-marker { width:3px; height:13px; border-radius:2px; }
 .layer-count { font-family:var(--mono); font-size:10px; color:var(--text-dim); }
-.layer-metrics { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
-.metric-row { display:flex; align-items:center; gap:6px; }
+
+.layer-metrics {
+  display:grid; grid-template-columns:1fr 1fr; gap:3px;
+}
+.metric-row {
+  display:flex; align-items:center; gap:6px;
+}
 .metric-label { font-size:9px; color:var(--text-dim); width:22px; }
-.metric-bar-wrap { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.metric-bar-wrap {
+  flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden;
+}
 .metric-bar { height:100%; border-radius:2px; transition: width .6s ease; }
 .metric-val { font-family:var(--mono); font-size:9px; color:var(--text-dim); width:28px; text-align:right; }
 
-.top-switch { display:flex; align-items:center; justify-content:space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size:11px; }
+/* top switches */
+.top-switch {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size:11px;
+}
 .top-switch:last-child { border-bottom:none; }
 .top-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-right:6px; }
 .top-name { font-family:var(--mono); font-size:10px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .top-val { font-family:var(--mono); font-size:10px; color:var(--teal); flex-shrink:0; margin-left:8px; }
 
-#detail { position:absolute; right:296px; top:60px; width:240px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:14px; display:none; z-index:100; font-size:12px; }
+/* detail panel */
+#detail {
+  position:absolute; right:296px; top:60px;
+  width:240px;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px;
+  display:none;
+  z-index:100;
+  font-size:12px;
+}
 #detail.show { display:block; }
 .detail-title { font-weight:700; font-size:14px; margin-bottom:10px; color:#fff; }
 .detail-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid var(--border); }
@@ -214,14 +252,636 @@ aside {
 .detail-key { color:var(--text-dim); font-size:11px; }
 .detail-val { font-family:var(--mono); font-size:11px; color:var(--teal); }
 
-#legend { position:absolute; bottom:12px; left:12px; display:flex; gap:12px; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--text-dim); cursor:pointer; padding: 3px 8px; border:1px solid transparent; border-radius:4px; transition: all .2s; }
-.legend-item:hover, .legend-item.active { border-color: var(--border); background: var(--bg3); color: var(--text); }
+/* layer legend */
+#legend {
+  position:absolute; bottom:12px; left:12px;
+  display:flex; gap:12px; flex-wrap:wrap;
+}
+.legend-item {
+  display:flex; align-items:center; gap:5px;
+  font-size:10px; color:var(--text-dim);
+  cursor:pointer;
+  padding: 3px 8px;
+  border:1px solid transparent;
+  border-radius:4px;
+  transition: all .2s;
+}
+.legend-item:hover, .legend-item.active {
+  border-color: var(--border);
+  background: var(--bg3);
+  color: var(--text);
+}
 .legend-dot { width:8px; height:8px; border-radius:50%; }
 
+/* scrollable aside sections */
 .aside-scroll { overflow-y:auto; flex:1; }
 .aside-scroll::-webkit-scrollbar { width:3px; }
 .aside-scroll::-webkit-scrollbar-track { background:transparent; }
 .aside-scroll::-webkit-scrollbar-thumb { background:var(--border); }
 </style>
 </head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">⬡</div>
+    <div>
+      <div class="brand-title">VIVO NOC</div>
+      <div class="brand-sub">Network Operations Center · OpenLabs</div>
+    </div>
+  </div>
+
+  <div class="kpi-bar">
+    <div class="kpi">
+      <div class="kpi-label">Switches</div>
+      <div class="kpi-value" id="kpi-switches">–/–</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">CPU Médio</div>
+      <div class="kpi-value" id="kpi-cpu">–</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Tráfego In</div>
+      <div class="kpi-value" id="kpi-in">–</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Tráfego Out</div>
+      <div class="kpi-value" id="kpi-out">–</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Alertas</div>
+      <div class="kpi-value" id="kpi-alerts">–</div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    <span>LIVE</span>
+    <span id="refresh-countdown" style="margin-left:4px;color:var(--text-dim)">30s</span>
+    <span style="margin-left:8px" id="clock">–</span>
+  </div>
+</header>
+
+<main>
+  <div id="canvas-wrap">
+    <canvas id="topo"></canvas>
+    <div class="nodes-layer" id="nodes-layer"></div>
+    <div id="legend"></div>
+  </div>
+
+  <aside>
+    <div class="aside-section">
+      <div class="aside-title">Alertas Ativos</div>
+      <div id="alerts-list">
+        <div class="alert-item">
+          <div class="alert-dot" style="background:var(--teal)"></div>
+          Carregando…
+        </div>
+      </div>
+    </div>
+
+    <div class="aside-section aside-scroll">
+      <div class="aside-title">Status por Camada</div>
+      <div id="layers-list"></div>
+    </div>
+
+    <div class="aside-section">
+      <div class="aside-title">Top Switches · CPU</div>
+      <div id="top-list"></div>
+    </div>
+  </aside>
+</main>
+
+<div id="detail">
+  <div class="detail-title" id="detail-name">–</div>
+  <div id="detail-body"></div>
+</div>
+
+<script>
+const API = '/api';
+const REFRESH = 30;
+const LAYER_ORDER = ['core','pe','access','transport','internet','dc'];
+const LAYER_ROWS  = { core:1, pe:2, pe2:2, transport:2, internet:2, dc:2, access:3 };
+
+// Posição Y por camada (0..1)
+const LAYER_Y = {
+  core:      0.15,
+  pe:        0.38,
+  transport: 0.38,
+  internet:  0.38,
+  dc:        0.38,
+  access:    0.72,
+};
+
+// Agrupa nodes por camada — pe/transport/internet/dc ficam na mesma linha
+const ROW_LAYERS = {
+  0: ['core'],
+  1: ['pe','transport','internet','dc'],
+  2: ['access'],
+};
+
+let topology = { nodes:[], links:[], layers:{} };
+let countdown = REFRESH;
+let activeLayer = null;
+let nodeEls = {};
+
+// ── Clock ──
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Fetch ──
+async function fetchData() {
+  try {
+    const [topo, alerts] = await Promise.all([
+      fetch(`${API}/topology`).then(r=>r.json()),
+      fetch(`${API}/alerts`).then(r=>r.json()),
+    ]);
+    topology = topo;
+    renderAll(alerts);
+  } catch(e) {
+    console.error('fetch error', e);
+  }
+}
+
+// ── Render ──
+function renderAll(alerts) {
+  const nodes = topology.nodes || [];
+  const layers = topology.layers || [];
+
+  // KPIs
+  const cpuAvg = nodes.length ? Math.round(nodes.reduce((s,n)=>s+n.cpu,0)/nodes.length) : 0;
+  const totalIn  = nodes.reduce((s,n)=>s+(n.in_mbps||0),0).toFixed(1);
+  const totalOut = nodes.reduce((s,n)=>s+(n.out_mbps||0),0).toFixed(1);
+  const alertCount = (alerts?.alerts||[]).length;
+
+  document.getElementById('kpi-switches').textContent = `${nodes.length}/${nodes.length}`;
+  const cpuEl = document.getElementById('kpi-cpu');
+  cpuEl.textContent = `${cpuAvg}%`;
+  cpuEl.className = `kpi-value${cpuAvg>80?' alert':cpuAvg>60?' warn':''}`;
+  document.getElementById('kpi-in').textContent  = `${totalIn} Mb/s`;
+  document.getElementById('kpi-out').textContent = `${totalOut} Mb/s`;
+  const alertEl = document.getElementById('kpi-alerts');
+  alertEl.textContent = alertCount;
+  alertEl.className = `kpi-value${alertCount>0?' alert':''}`;
+
+  renderAlerts(alerts?.alerts||[], nodes);
+  renderLayers(layers, nodes);
+  renderTop(nodes);
+  renderNodes(nodes, layers);
+  drawLinks();
+}
+
+// ── Alerts ──
+function renderAlerts(alerts, nodes) {
+  const el = document.getElementById('alerts-list');
+  const critNodes = nodes.filter(n=>n.cpu>80);
+  const all = [...alerts, ...critNodes.map(n=>({ type:'cpu', node:n }))];
+
+  if(!all.length) {
+    el.innerHTML = `<div class="alert-item"><div class="alert-dot" style="background:var(--teal)"></div>Todos os sistemas operacionais</div>`;
+    return;
+  }
+  el.innerHTML = all.slice(0,5).map(a => {
+    if(a.type==='cpu') return `<div class="alert-item"><div class="alert-dot" style="background:var(--orange)"></div>${a.node.name} — CPU ${a.node.cpu}%</div>`;
+    return `<div class="alert-item"><div class="alert-dot" style="background:var(--red)"></div>${a.message||JSON.stringify(a)}</div>`;
+  }).join('');
+}
+
+// ── Layers sidebar ──
+function renderLayers(layers, nodes) {
+  const el = document.getElementById('layers-list');
+  if(!layers.length) return;
+
+  const byLayer = {};
+  nodes.forEach(n => {
+    if(!byLayer[n.layer]) byLayer[n.layer] = [];
+    byLayer[n.layer].push(n);
+  });
+
+  el.innerHTML = layers.map(l => {
+    const ns = byLayer[l.id] || [];
+    const cpu = ns.length ? Math.round(ns.reduce((s,n)=>s+n.cpu,0)/ns.length) : 0;
+    const mem = ns.length ? Math.round(ns.reduce((s,n)=>s+(n.mem||0),0)/ns.length) : 0;
+    const cpuColor = cpu>80?'var(--red)':cpu>60?'var(--orange)':'var(--teal)';
+    return `
+    <div class="layer-item">
+      <div class="layer-head">
+        <div class="layer-name">
+          <div class="layer-bar-marker" style="background:${l.color}"></div>
+          ${l.name}
+        </div>
+        <div class="layer-count">${ns.length}/${ns.length}</div>
+      </div>
+      <div class="layer-metrics">
+        <div class="metric-row">
+          <div class="metric-label">CPU</div>
+          <div class="metric-bar-wrap"><div class="metric-bar" style="width:${cpu}%;background:${cpuColor}"></div></div>
+          <div class="metric-val">${cpu}%</div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label">Mem</div>
+          <div class="metric-bar-wrap"><div class="metric-bar" style="width:${mem}%;background:var(--blue)"></div></div>
+          <div class="metric-val">${mem}%</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Top switches ──
+function renderTop(nodes) {
+  const el = document.getElementById('top-list');
+  const sorted = [...nodes].sort((a,b)=>b.cpu-a.cpu).slice(0,6);
+  el.innerHTML = sorted.map(n => {
+    const shortName = n.name ? n.name.replace(/^(nokia|huawei|cisco|arista|ciena)-[a-z]+-/, '') : n.ip;
+    return `
+    <div class="top-switch">
+      <div class="top-dot" style="background:${cpuColor(n.cpu)}"></div>
+      <div class="top-name" title="${n.name}">${shortName}</div>
+      <div class="top-val">${n.cpu}%</div>
+    </div>`;
+  }).join('');
+}
+
+function cpuColor(c) { return c>80?'var(--red)':c>60?'var(--orange)':'var(--teal)'; }
+
+// ── Node positions ──
+function calcPositions(nodes) {
+  const wrap = document.getElementById('canvas-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const PAD = 60;
+
+  // Agrupa por camada
+  const byLayer = {};
+  nodes.forEach(n => {
+    if(!byLayer[n.layer]) byLayer[n.layer] = [];
+    byLayer[n.layer].push(n);
+  });
+
+  // Linha 0: core
+  // Linha 1: pe + transport + internet + dc (com separação por grupo)
+  // Linha 2: access
+  const positions = {};
+  const ROW_Y = [0.18, 0.50, 0.82];
+
+  // Linha 0 — core
+  const coreNodes = byLayer['core'] || [];
+  coreNodes.forEach((n, i) => {
+    const x = PAD + (i+1) * (W - 2*PAD) / (coreNodes.length + 1);
+    positions[n.ip] = { x, y: ROW_Y[0]*H };
+  });
+
+  // Linha 2 — access (muitos nós, compacto)
+  const accessNodes = byLayer['access'] || [];
+  accessNodes.forEach((n, i) => {
+    const x = PAD + (i+1) * (W - 2*PAD) / (accessNodes.length + 1);
+    positions[n.ip] = { x, y: ROW_Y[2]*H };
+  });
+
+  // Linha 1 — pe, transport, internet, dc divididos em grupos
+  const midLayers = ['pe','transport','internet','dc'];
+  const midNodes = [];
+  midLayers.forEach(l => { (byLayer[l]||[]).forEach(n => midNodes.push(n)); });
+
+  // Distribui com separação de grupo
+  let totalMid = midNodes.length;
+  if(totalMid > 0) {
+    const slotW = (W - 2*PAD) / (totalMid + midLayers.filter(l=>(byLayer[l]||[]).length>0).length);
+    let slot = 1;
+    midLayers.forEach(l => {
+      const ns = byLayer[l] || [];
+      if(!ns.length) return;
+      ns.forEach((n,i) => {
+        const x = PAD + (slot + i) * slotW;
+        positions[n.ip] = { x, y: ROW_Y[1]*H };
+      });
+      slot += ns.length + 1; // separação entre grupos
+    });
+
+    // Re-normaliza para usar toda a largura
+    const midIps = midNodes.map(n=>n.ip);
+    const xs = midIps.map(ip=>positions[ip]?.x||0);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const scaleX = (W - 2*PAD) / (maxX - minX || 1);
+    midIps.forEach(ip => {
+      if(positions[ip]) {
+        positions[ip].x = PAD + (positions[ip].x - minX) * scaleX;
+      }
+    });
+  }
+
+  return positions;
+}
+
+// ── Render nodes ──
+function renderNodes(nodes, layers) {
+  const wrap = document.getElementById('nodes-layer');
+  const positions = calcPositions(nodes);
+
+  // Cria/atualiza elementos
+  const existing = new Set(Object.keys(nodeEls));
+
+  nodes.forEach(n => {
+    const pos = positions[n.ip];
+    if(!pos) return;
+
+    const layer = (layers||[]).find(l=>l.id===n.layer)||{color:'var(--teal)'};
+    const color = layer.color || 'var(--teal)';
+    const cpu = n.cpu || 0;
+    const R = 22, C = 2*Math.PI*R;
+    const dash = C * cpu / 100;
+    const shortName = shortNodeName(n.name, n.ip);
+
+    if(nodeEls[n.ip]) {
+      // Update existing
+      existing.delete(n.ip);
+      const el = nodeEls[n.ip];
+      el.style.left = pos.x + 'px';
+      el.style.top  = pos.y + 'px';
+      const ring = el.querySelector('.cpu-ring');
+      if(ring) {
+        ring.style.strokeDasharray = `${dash} ${C}`;
+        ring.setAttribute('stroke', cpuColor(cpu));
+      }
+      const cpuEl = el.querySelector('.node-cpu');
+      if(cpuEl) cpuEl.textContent = `${cpu}% CPU`;
+    } else {
+      // Create new
+      const el = document.createElement('div');
+      el.className = 'node';
+      el.style.left = pos.x + 'px';
+      el.style.top  = pos.y + 'px';
+      el.innerHTML = `
+        <div class="node-ring">
+          <svg viewBox="0 0 52 52">
+            <circle class="bg-ring" cx="26" cy="26" r="${R}"/>
+            <circle class="cpu-ring" cx="26" cy="26" r="${R}"
+              stroke="${cpuColor(cpu)}"
+              stroke-dasharray="${dash} ${C}"
+              stroke-dashoffset="0"/>
+          </svg>
+          <div class="icon" style="color:${color}">${layerIcon(n.layer)}</div>
+        </div>
+        <div class="node-name" title="${n.name||n.ip}">${shortName}</div>
+        <div class="node-cpu">${cpu}% CPU</div>
+      `;
+      el.addEventListener('click', () => showDetail(n, layer));
+      wrap.appendChild(el);
+      nodeEls[n.ip] = el;
+    }
+  });
+
+  // Remove stale
+  existing.forEach(ip => {
+    if(nodeEls[ip]) { nodeEls[ip].remove(); delete nodeEls[ip]; }
+  });
+
+  // Draw links on canvas
+  window._positions = positions;
+  window._nodes = nodes;
+  window._layers = layers;
+  drawLinks();
+  renderLegend(layers);
+}
+
+function shortNodeName(name, ip) {
+  if(!name) return ip.split('.').slice(2).join('-');
+  // nokia-core-172-20-1-106 → core-1-106
+  // cisco-acc-172-20-3-106 → acc-3-106
+  const m = name.match(/^[a-z]+-([a-z]+)-\d+-\d+-(\d+)-(\d+)$/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return name.split('-').slice(-2).join('-');
+}
+
+function layerIcon(layer) {
+  const icons = { core:'◈', pe:'◇', access:'○', transport:'△', internet:'☆', dc:'□' };
+  return icons[layer] || '·';
+}
+
+// ── Canvas links ──
+function drawLinks() {
+  const canvas = document.getElementById('topo');
+  const wrap = document.getElementById('canvas-wrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const positions = window._positions || {};
+  const nodes     = window._nodes     || [];
+  const layers    = window._layers    || [];
+
+  // Conecta camadas hierarquicamente: core→pe, core→transport, core→internet, pe→access, dc→access
+  const CONNECTIONS = [
+    ['core','pe'], ['core','transport'], ['core','internet'], ['core','dc'],
+    ['pe','access'], ['dc','access'], ['internet','access'],
+  ];
+
+  const byLayer = {};
+  nodes.forEach(n => {
+    if(!byLayer[n.layer]) byLayer[n.layer] = [];
+    byLayer[n.layer].push(n);
+  });
+
+  CONNECTIONS.forEach(([from, to]) => {
+    const fromNodes = byLayer[from] || [];
+    const toNodes   = byLayer[to]   || [];
+    if(!fromNodes.length || !toNodes.length) return;
+
+    fromNodes.forEach(fn => {
+      const fp = positions[fn.ip];
+      if(!fp) return;
+      toNodes.forEach(tn => {
+        const tp = positions[tn.ip];
+        if(!tp) return;
+
+        const dx = tp.x - fp.x, dy = tp.y - fp.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist > 600) return; // só links próximos
+
+        ctx.beginPath();
+        ctx.moveTo(fp.x, fp.y);
+        ctx.lineTo(tp.x, tp.y);
+        ctx.strokeStyle = 'rgba(0,212,170,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+    });
+  });
+
+  // Partículas animadas
+  if(!window._particles) initParticles(positions, nodes, byLayer);
+  drawParticles(ctx, positions, nodes);
+}
+
+// ── Particles ──
+let particles = [];
+let lastParticleTime = 0;
+
+function initParticles(positions, nodes, byLayer) {
+  window._particles = true;
+  animateParticles();
+}
+
+function animateParticles() {
+  const canvas = document.getElementById('topo');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const positions = window._positions || {};
+  const nodes     = window._nodes     || [];
+
+  const byLayer = {};
+  nodes.forEach(n => {
+    if(!byLayer[n.layer]) byLayer[n.layer] = [];
+    byLayer[n.layer].push(n);
+  });
+
+  // Redraw links
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const CONNECTIONS = [
+    ['core','pe'],['core','transport'],['core','internet'],['core','dc'],
+    ['pe','access'],['dc','access'],['internet','access'],
+  ];
+
+  CONNECTIONS.forEach(([from,to]) => {
+    const fns = byLayer[from]||[], tns = byLayer[to]||[];
+    fns.forEach(fn => {
+      const fp = positions[fn.ip]; if(!fp) return;
+      tns.forEach(tn => {
+        const tp = positions[tn.ip]; if(!tp) return;
+        const dx=tp.x-fp.x, dy=tp.y-fp.y;
+        if(Math.sqrt(dx*dx+dy*dy)>600) return;
+        ctx.beginPath();
+        ctx.moveTo(fp.x,fp.y);
+        ctx.lineTo(tp.x,tp.y);
+        ctx.strokeStyle='rgba(0,212,170,0.06)';
+        ctx.lineWidth=1;
+        ctx.stroke();
+      });
+    });
+  });
+
+  // Spawn particles
+  const now = Date.now();
+  if(now - lastParticleTime > 300 && nodes.length > 0) {
+    lastParticleTime = now;
+    const conn = CONNECTIONS[Math.floor(Math.random()*CONNECTIONS.length)];
+    const fns = byLayer[conn[0]]||[], tns = byLayer[conn[1]]||[];
+    if(fns.length && tns.length) {
+      const fn = fns[Math.floor(Math.random()*fns.length)];
+      const tn = tns[Math.floor(Math.random()*tns.length)];
+      const fp = positions[fn.ip], tp = positions[tn.ip];
+      if(fp && tp) {
+        particles.push({ x:fp.x, y:fp.y, tx:tp.x, ty:tp.y, t:0, dur: 1200+Math.random()*800 });
+      }
+    }
+  }
+
+  // Draw particles
+  const dt = 16;
+  particles = particles.filter(p => {
+    p.t += dt;
+    const prog = p.t / p.dur;
+    if(prog >= 1) return false;
+    const x = p.x + (p.tx-p.x)*prog;
+    const y = p.y + (p.ty-p.y)*prog;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(0,212,170,${0.8*(1-prog)})`;
+    ctx.fill();
+    return true;
+  });
+
+  requestAnimationFrame(animateParticles);
+}
+
+// ── Legend ──
+function renderLegend(layers) {
+  const el = document.getElementById('legend');
+  if(!layers.length) return;
+  el.innerHTML = layers.map(l => `
+    <div class="legend-item${activeLayer===l.id?' active':''}" onclick="filterLayer('${l.id}')">
+      <div class="legend-dot" style="background:${l.color}"></div>
+      ${l.name}
+    </div>
+  `).join('');
+}
+
+function filterLayer(id) {
+  activeLayer = activeLayer===id ? null : id;
+  const nodes = window._nodes || [];
+  Object.entries(nodeEls).forEach(([ip, el]) => {
+    const node = nodes.find(n=>n.ip===ip);
+    if(!node) return;
+    el.style.opacity = (!activeLayer || node.layer===activeLayer) ? '1' : '0.15';
+  });
+  renderLegend(window._layers || []);
+}
+
+// ── Detail panel ──
+function showDetail(node, layer) {
+  const el = document.getElementById('detail');
+  document.getElementById('detail-name').textContent = node.name || node.ip;
+  const rows = [
+    ['IP',      node.ip],
+    ['Camada',  layer.name || node.layer],
+    ['Vendor',  node.vendor || '–'],
+    ['CPU',     `${node.cpu}%`],
+    ['Memória', `${node.mem||0}%`],
+    ['In',      `${node.in_mbps||0} Mb/s`],
+    ['Out',     `${node.out_mbps||0} Mb/s`],
+    ['Uptime',  node.uptime ? formatUptime(node.uptime) : '–'],
+    ['Visto',   node.last_seen ? new Date(node.last_seen).toLocaleTimeString('pt-BR') : '–'],
+  ];
+  document.getElementById('detail-body').innerHTML = rows.map(([k,v])=>
+    `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${v}</div></div>`
+  ).join('');
+  el.classList.add('show');
+}
+
+document.addEventListener('click', e => {
+  if(!e.target.closest('.node') && !e.target.closest('#detail'))
+    document.getElementById('detail').classList.remove('show');
+});
+
+function formatUptime(ticks) {
+  const s = Math.floor(ticks/100);
+  const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600), m = Math.floor((s%3600)/60);
+  return `${d}d ${h}h ${m}m`;
+}
+
+// ── Countdown ──
+function startCountdown() {
+  countdown = REFRESH;
+  const el = document.getElementById('refresh-countdown');
+  const iv = setInterval(() => {
+    countdown--;
+    el.textContent = `${countdown}s`;
+    if(countdown <= 0) {
+      clearInterval(iv);
+      fetchData().then(startCountdown);
+    }
+  }, 1000);
+}
+
+// ── Resize ──
+window.addEventListener('resize', () => {
+  if(window._nodes) renderNodes(window._nodes, window._layers);
+});
+
+// ── Init ──
+fetchData().then(startCountdown);
+</script>
+</body>
+</html>

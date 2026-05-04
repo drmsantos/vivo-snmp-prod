@@ -1,0 +1,11 @@
+ip,layer,community,port
+10.42.6.14,access,public,161
+10.42.6.16,access,public,161
+10.42.6.11,access,public,161
+10.42.6.19,core,public,161
+10.42.6.18,dc,public,161
+10.42.6.13,dc,public,161
+10.42.6.15,internet,public,161
+10.42.6.17,pe,public,161
+10.42.6.10,pe,public,161
+10.42.6.12,transport,public,161

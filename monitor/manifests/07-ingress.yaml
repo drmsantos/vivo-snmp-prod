@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    field.cattle.io/publicEndpoints: '[{"addresses":["172.16.15.74","172.16.15.75","172.16.15.76","172.16.15.77","172.16.15.78","172.16.15.79"],"port":80,"protocol":"HTTP","serviceName":"snmp-monitor:vivo-noc-api","ingressName":"snmp-monitor:vivo-noc","hostname":"vivo-noc.172.16.15.32.nip.io","path":"/dashboard","allNodes":false},{"addresses":["172.16.15.74","172.16.15.75","172.16.15.76","172.16.15.77","172.16.15.78","172.16.15.79"],"port":80,"protocol":"HTTP","serviceName":"snmp-monitor:vivo-noc-api","ingressName":"snmp-monitor:vivo-noc","hostname":"vivo-noc.172.16.15.32.nip.io","path":"/api","allNodes":false},{"addresses":["172.16.15.74","172.16.15.75","172.16.15.76","172.16.15.77","172.16.15.78","172.16.15.79"],"port":80,"protocol":"HTTP","serviceName":"snmp-monitor:vivo-noc-frontend","ingressName":"snmp-monitor:vivo-noc","hostname":"vivo-noc.172.16.15.32.nip.io","path":"/","allNodes":false}]'
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"nginx.ingress.kubernetes.io/ssl-redirect":"false"},"name":"vivo-noc","namespace":"snmp-monitor"},"spec":{"ingressClassName":"nginx","rules":[{"host":"vivo-noc.172.16.15.32.nip.io","http":{"paths":[{"backend":{"service":{"name":"vivo-noc-api","port":{"number":8080}}},"path":"/dashboard","pathType":"Prefix"},{"backend":{"service":{"name":"vivo-noc-api","port":{"number":8080}}},"path":"/api","pathType":"Prefix"},{"backend":{"service":{"name":"vivo-noc-frontend","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  creationTimestamp: "2026-05-02T22:08:07Z"
+  generation: 4
+  name: vivo-noc
+  namespace: snmp-monitor
+  resourceVersion: "37148896"
+  uid: a07bd353-d83d-467c-9787-d0cac8fb04e8
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: vivo-noc.172.16.15.32.nip.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: vivo-noc-api
+            port:
+              number: 8080
+        path: /dashboard
+        pathType: Prefix
+      - backend:
+          service:
+            name: vivo-noc-api
+            port:
+              number: 8080
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: vivo-noc-frontend
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.15.74
+    - ip: 172.16.15.75
+    - ip: 172.16.15.76
+    - ip: 172.16.15.77
+    - ip: 172.16.15.78
+    - ip: 172.16.15.79

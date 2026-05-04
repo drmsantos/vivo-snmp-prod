@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-# =============================================================================
-# Autor:   Diego Regis M. F. dos Santos
-# Email:   diego-f-santos@openlabs.com.br
-# Time:    OpenLabs - DevOps | Infra | Versão: 5.0
-# Desc:    Autodiscovery SNMP via CSV — sem K8s API, sem RBAC
-#          Coleta via IP eth0 dos pods (Flannel) — sem problemas de macvlan
-#          Em produção: trocar IPs do CSV pelos IPs OAM reais dos switches
-#          IMPORTANTE: required_acks=1 obrigatório para Kafka single-broker
-# =============================================================================
+# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
+# Time: OpenLabs - DevOps | Infra | Versão: 4.0
+# Desc: Autodiscovery por CSV — sem K8s API, sem RBAC
+#       Em produção: troca o CSV pelos IPs reais dos switches
 import os, csv, sys
 
-SNMP_PORT     = os.getenv("SNMP_PORT", "161")
+SNMP_PORT     = os.getenv("SNMP_PORT", "1161")
 COMMUNITY     = os.getenv("COMMUNITY", "public")
 KAFKA_BROKERS = os.getenv("KAFKA_BROKERS", "kafka.snmp-monitor.svc.cluster.local:9092")
 OUTPUT        = os.getenv("TELEGRAF_CONF", "/etc/telegraf/telegraf.conf")
@@ -25,30 +20,25 @@ def load_csv():
     agents = {}
     with open(CSV_PATH) as f:
         for row in csv.DictReader(f):
-            ip    = row.get("ip","").strip()
-            layer = row.get("layer","").strip().lower()
-            port  = row.get("port", SNMP_PORT).strip()
-            comm  = row.get("community", COMMUNITY).strip()
+            ip      = row.get("ip","").strip()
+            layer   = row.get("layer","").strip().lower()
+            port    = row.get("port", SNMP_PORT).strip()
             if not ip or not layer: continue
-            agents.setdefault(layer, {"ips": [], "community": comm})
-            agents[layer]["ips"].append(f'"udp://{ip}:{port}"')
+            agents.setdefault(layer, []).append(f'"udp://{ip}:{port}"')
             print(f"  [{layer}] {ip}:{port}")
     return agents
 
-def snmp_block(layer, info):
-    ips  = info["ips"]
-    comm = info.get("community", COMMUNITY)
-    if not ips: return ""
+def snmp_block(layer, agents):
+    if not agents: return ""
     extra = EXTRA_FIELDS.get(layer, [])
-
     block = f"""
 [[inputs.snmp]]
   name_override  = "snmp_{layer}"
-  agents         = [{",".join(ips)}]
+  agents         = [{",".join(agents)}]
   version        = 2
-  community      = "{comm}"
-  timeout        = "5s"
-  retries        = 0
+  community      = "{COMMUNITY}"
+  timeout        = "10s"
+  retries        = 1
   agent_host_tag = "source"
 
   [[inputs.snmp.field]]
@@ -66,12 +56,15 @@ def snmp_block(layer, info):
   [[inputs.snmp.field]]
     name = "memUsage"
     oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"memUsage\\""
+  [[inputs.snmp.field]]
+    name = "ifInOctets"
+    oid  = "IF-MIB::ifInOctets.2"
+  [[inputs.snmp.field]]
+    name = "ifOutOctets"
+    oid  = "IF-MIB::ifOutOctets.2"
 """
     for f in extra:
-        block += f"""  [[inputs.snmp.field]]
-    name = "{f}"
-    oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"{f}\\""\n"""
-
+        block += f'  [[inputs.snmp.field]]\n    name = "{f}"\n    oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"{f}\\""\n'
     return block
 
 def main():
@@ -82,7 +75,7 @@ def main():
         sys.exit(1)
 
     conf = f"""[agent]
-  interval            = "60s"
+  interval            = "30s"
   round_interval      = false
   metric_batch_size   = 1000
   metric_buffer_limit = 20000
@@ -91,17 +84,20 @@ def main():
   omit_hostname       = false
 
 [[outputs.kafka]]
-  brokers       = ["{KAFKA_BROKERS}"]
+  brokers       = ["kafka.snmp-monitor.svc.cluster.local:9092"]
   topic         = "snmp-metrics"
   data_format   = "json"
   required_acks = 1
+  
+  
+  
 
 """
     total = 0
-    for layer, info in agents.items():
-        conf += snmp_block(layer, info)
-        total += len(info["ips"])
-        print(f"  {layer}: {len(info['ips'])} switches")
+    for layer, ips in agents.items():
+        conf += snmp_block(layer, ips)
+        total += len(ips)
+        print(f"  {layer}: {len(ips)} switches")
 
     with open(OUTPUT, "w") as f:
         f.write(conf)
@@ -109,3 +105,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

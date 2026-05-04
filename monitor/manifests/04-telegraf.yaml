@@ -1,222 +1,160 @@
-# Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
-# Time: OpenLabs - DevOps | Infra | Versão: 2.2
-# Desc: DaemonSet Telegraf — autodiscovery via CSV, sem RBAC
-#       Coleta SNMP via IP eth0 (Flannel) — sem problemas de macvlan hair-pinning
-#       Em produção: atualizar switches.csv com IPs OAM reais
-#
-# Para produção com switches reais:
-#   1. Editar switches.csv com IPs/community reais
-#   2. kubectl apply -f 04-telegraf.yaml
-#   3. kubectl rollout restart daemonset/telegraf -n snmp-monitor
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: switches-csv
-  namespace: snmp-monitor
-data:
-  switches.csv: |
-    ip,layer,community,port
-    # ATUALIZAR com IPs eth0 dos pods após deploy (./deploy.sh --update-csv)
-    # Em producao: IPs OAM reais dos switches + community real
-    # Exemplo:
-    # 10.100.1.1,core,vivo-ro-2024,161
-    # 10.100.1.2,pe,vivo-ro-2024,161
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: autodiscovery-script
-  namespace: snmp-monitor
-data:
-  autodiscovery.py: |
-    #!/usr/bin/env python3
-    # Autor: Diego Regis M. F. dos Santos | diego-f-santos@openlabs.com.br
-    # Versão: 5.0 — autodiscovery via CSV, required_acks=1
-    import os, csv, sys
-    SNMP_PORT     = os.getenv("SNMP_PORT", "161")
-    COMMUNITY     = os.getenv("COMMUNITY", "public")
-    KAFKA_BROKERS = os.getenv("KAFKA_BROKERS", "kafka.snmp-monitor.svc.cluster.local:9092")
-    OUTPUT        = os.getenv("TELEGRAF_CONF", "/etc/telegraf/telegraf.conf")
-    CSV_PATH      = os.getenv("SWITCHES_CSV", "/etc/snmp/switches.csv")
-    EXTRA_FIELDS  = {"transport": ["optRxPower","optTxPower","chassisTemp"], "internet": ["bgpPeers"]}
-    def load_csv():
-        agents = {}
-        with open(CSV_PATH) as f:
-            for row in csv.DictReader(f):
-                ip    = row.get("ip","").strip()
-                layer = row.get("layer","").strip().lower()
-                port  = row.get("port", SNMP_PORT).strip()
-                comm  = row.get("community", COMMUNITY).strip()
-                if not ip or not layer or ip.startswith("#"): continue
-                agents.setdefault(layer, {"ips":[], "community": comm})
-                agents[layer]["ips"].append(f'"udp://{ip}:{port}"')
-                print(f"  [{layer}] {ip}:{port}")
-        return agents
-    def snmp_block(layer, info):
-        ips  = info["ips"]
-        comm = info.get("community", COMMUNITY)
-        if not ips: return ""
-        extra = EXTRA_FIELDS.get(layer, [])
-        block = f"""
-    [[inputs.snmp]]
-      name_override  = "snmp_{layer}"
-      agents         = [{",".join(ips)}]
-      version        = 2
-      community      = "{comm}"
-      timeout        = "5s"
-      retries        = 0
-      agent_host_tag = "source"
-      [[inputs.snmp.field]]
-        name = "sysDescr"
-        oid  = "RFC1213-MIB::sysDescr.0"
-      [[inputs.snmp.field]]
-        name = "sysName"
-        oid  = "RFC1213-MIB::sysName.0"
-      [[inputs.snmp.field]]
-        name = "sysUpTime"
-        oid  = "RFC1213-MIB::sysUpTime.0"
-      [[inputs.snmp.field]]
-        name = "cpuUsage"
-        oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"cpuUsage\\""
-      [[inputs.snmp.field]]
-        name = "memUsage"
-        oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"memUsage\\""
-    """
-        for f in extra:
-            block += f'  [[inputs.snmp.field]]\n    name = "{f}"\n    oid  = "NET-SNMP-EXTEND-MIB::nsExtendOutput1Line.\\"{f}\\""\n'
-        return block
-    def main():
-        print("=== Autodiscovery SNMP via CSV ===")
-        agents = load_csv()
-        if not agents:
-            print("ERRO: CSV vazio"); import sys; sys.exit(1)
-        conf = f"""[agent]
-      interval            = "60s"
-      flush_interval      = "30s"
-      metric_buffer_limit = 20000
-      hostname            = "telegraf-vivo"
-      omit_hostname       = false
-    [[outputs.kafka]]
-      brokers       = ["{KAFKA_BROKERS}"]
-      topic         = "snmp-metrics"
-      data_format   = "json"
-      required_acks = 1
-    """
-        total = 0
-        for layer, info in agents.items():
-            conf += snmp_block(layer, info)
-            total += len(info["ips"])
-            print(f"  {layer}: {len(info['ips'])} switches")
-        with open(OUTPUT, "w") as f:
-            f.write(conf)
-        print(f"telegraf.conf gerado — total: {total} switches")
-    if __name__ == "__main__":
-        main()
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: telegraf-entrypoint
-  namespace: snmp-monitor
-data:
-  entrypoint.sh: |
-    #!/bin/sh
-    set -e
-    export SWITCHES_CSV="/etc/snmp/switches.csv"
-    python3 /autodiscovery.py
-    exec /entrypoint.sh
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  annotations:
+    deprecated.daemonset.template.generation: "72"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"app":"telegraf"},"name":"telegraf","namespace":"snmp-monitor"},"spec":{"selector":{"matchLabels":{"app":"telegraf"}},"template":{"metadata":{"annotations":{"k8s.v1.cni.cncf.io/networks":"net-core,net-pe,net-access,net-oam,net-transport,net-internet,net-dc"},"labels":{"app":"telegraf"}},"spec":{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/control-plane","operator":"DoesNotExist"}]}]}}},"containers":[{"env":[{"name":"DISCOVERY_MODE","value":"prod"},{"name":"SWITCHES_CSV","value":"/etc/snmp/switches.csv"},{"name":"SNMP_PORT","value":"1161"},{"name":"COMMUNITY","value":"public"},{"name":"KAFKA_BROKERS","value":"kafka.snmp-monitor.svc.cluster.local:9092"},{"name":"TELEGRAF_CONF","value":"/etc/telegraf/telegraf.conf"},{"name":"TZ","value":"America/Sao_Paulo"}],"image":"ghcr.io/drmsantos/vivo-telegraf:latest","imagePullPolicy":"Always","name":"telegraf","resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"200m","memory":"256Mi"}},"volumeMounts":[{"mountPath":"/etc/snmp/switches.csv","name":"switches-csv","subPath":"switches.csv"},{"mountPath":"/autodiscovery.py","name":"autodiscovery","subPath":"autodiscovery.py"}]}],"initContainers":[{"command":["sh","-c","until nc -z kafka.snmp-monitor.svc.cluster.local 9092; do echo aguardando kafka...; sleep 5; done"],"image":"busybox:1.36","name":"wait-kafka"}],"volumes":[{"configMap":{"name":"switches-csv"},"name":"switches-csv"},{"configMap":{"defaultMode":493,"name":"autodiscovery-script"},"name":"autodiscovery"}]}}}}
+  creationTimestamp: "2026-05-02T22:08:06Z"
+  generation: 72
+  labels:
+    app: telegraf
   name: telegraf
   namespace: snmp-monitor
-  labels: {app: telegraf}
+  resourceVersion: "37345330"
+  uid: d0ece39e-a53b-474f-84cc-a67cedeb54bd
 spec:
+  revisionHistoryLimit: 10
   selector:
-    matchLabels: {app: telegraf}
+    matchLabels:
+      app: telegraf
   template:
     metadata:
-      labels: {app: telegraf}
       annotations:
         k8s.v1.cni.cncf.io/networks: net-core,net-pe,net-access,net-oam,net-transport,net-internet,net-dc
+        kubectl.kubernetes.io/restartedAt: "2026-05-04T02:00:04Z"
+      labels:
+        app: telegraf
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-              - matchExpressions: [{key: node-role.kubernetes.io/control-plane, operator: DoesNotExist}]
-      initContainers:
-        - name: wait-kafka
-          image: busybox:1.36
-          command: ['sh','-c','until nc -z kafka.snmp-monitor.svc.cluster.local 9092; do echo aguardando kafka...; sleep 5; done']
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
       containers:
-        - name: telegraf
-          image: ghcr.io/drmsantos/vivo-telegraf:latest
-          imagePullPolicy: Always
-          command: ["/etc/snmp/entrypoint.sh"]
-          env:
-            - {name: SNMP_PORT,     value: "161"}
-            - {name: COMMUNITY,     value: "public"}
-            - {name: KAFKA_BROKERS, value: "kafka.snmp-monitor.svc.cluster.local:9092"}
-            - {name: SWITCHES_CSV,  value: "/etc/snmp/switches.csv"}
-            - {name: TZ,            value: "America/Sao_Paulo"}
-          volumeMounts:
-            - {name: switches-csv,     mountPath: /etc/snmp/switches.csv,    subPath: switches.csv}
-            - {name: autodiscovery,    mountPath: /autodiscovery.py,          subPath: autodiscovery.py}
-            - {name: entrypoint,       mountPath: /etc/snmp/entrypoint.sh,    subPath: entrypoint.sh}
-          resources:
-            requests: {memory: "256Mi", cpu: "200m"}
-            limits:   {memory: "512Mi", cpu: "500m"}
+      - command:
+        - /etc/snmp/entrypoint.sh
+        env:
+        - name: DISCOVERY_MODE
+          value: prod
+        - name: MY_NODE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: SNMP_PORT
+          value: "1161"
+        - name: COMMUNITY
+          value: public
+        - name: KAFKA_BROKERS
+          value: kafka.snmp-monitor.svc.cluster.local:9092
+        - name: TELEGRAF_CONF
+          value: /etc/telegraf/telegraf.conf
+        - name: TZ
+          value: America/Sao_Paulo
+        - name: SWITCHES_CSV
+          value: /etc/snmp/switches.csv
+        image: ghcr.io/drmsantos/vivo-telegraf:latest
+        imagePullPolicy: Always
+        name: telegraf
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/snmp/entrypoint.sh
+          name: telegraf-entrypoint
+          subPath: entrypoint.sh
+        - mountPath: /etc/snmp/rancher-worker01.csv
+          name: csv-w01
+          subPath: switches.csv
+        - mountPath: /etc/snmp/rancher-worker02.csv
+          name: csv-w02
+          subPath: switches.csv
+        - mountPath: /etc/snmp/rancher-worker03.csv
+          name: csv-w03
+          subPath: switches.csv
+        - mountPath: /etc/snmp/switches.csv
+          name: switches-csv
+          subPath: switches.csv
+        - mountPath: /autodiscovery.py
+          name: autodiscovery
+          subPath: autodiscovery.py
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - until nc -z kafka.snmp-monitor.svc.cluster.local 9092; do echo aguardando
+          kafka...; sleep 5; done && cp /etc/snmp/${MY_NODE:-rancher-worker01}.csv
+          /etc/snmp/switches.csv 2>/dev/null || true
+        env:
+        - name: SWITCHES_CSV
+          value: /etc/snmp/switches.csv
+        image: busybox:1.36
+        imagePullPolicy: IfNotPresent
+        name: wait-kafka
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
       volumes:
-        - {name: switches-csv,  configMap: {name: switches-csv}}
-        - {name: autodiscovery, configMap: {name: autodiscovery-script, defaultMode: 493}}
-        - {name: entrypoint,    configMap: {name: telegraf-entrypoint,  defaultMode: 493}}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: telegraf-restart
-  namespace: snmp-monitor
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: telegraf-restart
-  namespace: snmp-monitor
-rules:
-  - apiGroups: ["apps"]
-    resources: ["daemonsets"]
-    verbs: ["get", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: telegraf-restart
-  namespace: snmp-monitor
-subjects:
-  - kind: ServiceAccount
-    name: telegraf-restart
-    namespace: snmp-monitor
-roleRef:
-  kind: Role
-  apiGroup: rbac.authorization.k8s.io
-  name: telegraf-restart
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: telegraf-rediscovery
-  namespace: snmp-monitor
-spec:
-  schedule: "0 * * * *"
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          serviceAccountName: telegraf-restart
-          restartPolicy: OnFailure
-          containers:
-            - name: kubectl
-              image: bitnami/kubectl:latest
-              command: ["kubectl","rollout","restart","daemonset/telegraf","-n","snmp-monitor"]
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker01
+        name: csv-w01
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker02
+        name: csv-w02
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker03
+        name: csv-w03
+      - configMap:
+          defaultMode: 493
+          name: telegraf-entrypoint
+        name: telegraf-entrypoint
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker01
+        name: csv-worker01
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker02
+        name: csv-worker02
+      - configMap:
+          defaultMode: 420
+          name: switches-csv-rancher-worker03
+        name: csv-worker03
+      - configMap:
+          defaultMode: 420
+          name: switches-csv
+        name: switches-csv
+      - configMap:
+          defaultMode: 493
+          name: autodiscovery-script
+        name: autodiscovery
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+status:
+  currentNumberScheduled: 3
+  desiredNumberScheduled: 3
+  numberAvailable: 3
+  numberMisscheduled: 0
+  numberReady: 3
+  observedGeneration: 72
+  updatedNumberScheduled: 3
